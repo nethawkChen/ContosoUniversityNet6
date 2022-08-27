@@ -1,0 +1,89 @@
+﻿/*呈現資料的表格*/
+#css_table {
+    display: table;
+    border: 1px solid #000;
+    background-color: #F0F8FF;
+
+    .css_tr {
+        display: table-row;
+        /*background-color: #F0F8FF;*/
+    }
+
+    .css_td {
+        display: table-cell;
+        border: 1px solid #000;
+        padding-top: 1px;
+        padding-bottom: 1px;
+        padding-left: 1px;
+        padding-right: 1px;
+    }
+
+    .css_title {
+        font-weight: bold;
+        background-color: #4682B4;
+        color: white;
+    }
+
+    .css_td_title {
+        text-align: center;
+        font-weight: bold;
+        background-color: #4682B4;
+        color: white;
+    }
+
+    .css_pager {
+        width: 30px;
+        text-align: center;
+        background-color: #4682B4;
+        color: white;
+    }
+
+    .css_field {
+        text-align: right;
+        font-weight: bold;
+        background-color: #4682B4;
+        color: white;
+    }
+}
+
+
+/*燈箱 lignt-box*/
+.lightbox {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+}
+
+.modal-mask {
+    position: absolute;
+    z-index: 10;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: table;
+    background-color: rgba(0, 0, 0, .5);
+    transition: opacity .3s ease;
+}
+
+.modal-container {
+    cursor: pointer;
+    display: table-cell;
+    vertical-align: middle;
+}
+
+.modal-body {
+    cursor: auto;
+    display: block;
+    width: 50%;
+    margin: 0 auto;
+    padding: 2rem;
+    background-color: #fff;
+}
+
+/*滑鼠指標*/
+.myMOUSE {
+    cursor: pointer;
+}

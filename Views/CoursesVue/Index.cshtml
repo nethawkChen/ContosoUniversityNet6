@@ -1,0 +1,349 @@
+﻿@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+
+@{
+    ViewData["Title"] = "Index";
+    var requestToken = Antiforgery.GetAndStoreTokens(Context).RequestToken;
+}
+@section styles{
+    <link rel="stylesheet" href="~/css/tableStyle.css" />
+}
+
+<h1>Index</h1>
+<input id="RequestVerificationToken" type="hidden" value="@requestToken" />
+
+<div id="app">
+    <div class="panel">
+        <div class="panel-body">
+            <div class="row">
+                <div class="form-group input-group col-md-3">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text bg-dark text-white">Title</span>
+                    </div>
+                    <input type="text" class="form-control" v-model="queryParam.title" />
+                </div>
+                <div class="form-group input-group col-md-3">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text bg-dark text-white">Credits</span>
+                    </div>
+                    <input type="number" class="form-control" v-model="queryParam.credits" />
+                </div>
+                <div class="form-group col-md-3">
+                    <input type="button" v-on:click="btnQuery" value="查詢" class="btn btn-primary" />
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="col-md-12">
+            <div style="width: 98%;">
+                <div id="css_table" style="background-color: dimgray;width:100%">
+                    <div class="css_tr">
+                        <div class="css_td" style="width:95%">課程</div>
+                        <div class="css_td myMOUSE" style="text-align: center;" title="新增">
+                            <i class="fas fa-plus" v-on:click="curdAction('add')"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="css_table" style="width: 100%;">
+                    <div class="css_tr css_title">
+                        <div class="css_td">ID</div>
+                        <div class="css_td">Title</div>
+                        <div class="css_td">Credits</div>
+                        <div class="css_td"></div>
+                        <div class="css_td"></div>
+                    </div>
+                    <div class="css_tr" v-for="item in coursesDataLst" :key="item.ID">
+                        <div class="css_td">{{ item.courseID }}</div>
+                        <div class="css_td">{{ item.title }}</div>
+                        <div class="css_td">{{ item.credits }}</div>
+                        <div class="css_td"><i class="fas fa-edit" v-on:click="curdAction('edit',item.courseID,item.title,item.credits)"></i></div>
+                        <div class="css_td"><i class="fas fa-trash-alt" v-on:click="delRecord(item.courseID,item.title,item.credits)"></i></div>
+                    </div>
+                </div>
+                <div id="css_table" style="width: 100%;">
+                    <div class="css_tr">
+                        <div class="css_td css_pager" title="第一頁" v-on:click="btnGoFirst"><i class="fas fa-angle-double-left"></i></div>
+                        <div class="css_td css_pager" title="上一頁" v-on:click="btnGoPrev"><i class="fas fa-caret-left"></i></div>
+                        <div class="css_td" style="width:28px"><input type="text" v-model="pagerInfo.NowPage" style="width: 25px;"></div>
+                        <div class="css_td css_pager" title="下一頁" v-on:click="btnGoNext"><i class="fas fa-caret-right"></i></div>
+                        <div class="css_td css_pager" title="最後一頁" v-on:click="btnGoLast"><i class="fas fa-angle-double-right"></i></div>
+                        <div class="css_td">
+                            頁索引:{{ pagerInfo.Index }} &nbsp;|&nbsp;目前頁數:{{ pagerInfo.NowPage }}&nbsp;|&nbsp;總筆數:{{ pagerInfo.TotalRows }}&nbsp;|&nbsp;總頁數:{{ pagerInfo.TotalPages }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <curd-lightbox v-bind:isdisplay="lightboxShow" v-on:lightbox-Close="handleHide">
+        <template v-slot:header>
+            <span>{{actionObj.title}}</span>
+        </template>
+
+        <div id="css_table">
+            <div class="css_tr">
+                <div class="css_td css_title">CourseID</div>
+                <div class="css_td"><input type="text" v-model="tbCourse.CourseID" readonly="readonly" style="background-color:darkgray" /></div>
+            </div>
+            <div class="css_tr">
+                <div class="css_td css_title">Title</div>
+                <div class="css_td"><input type="text" v-model="tbCourse.Title" /></div>
+            </div>
+            <div class="css_tr">
+                <div class="css_td css_title">Credits</div>
+                <div class="css_td"><input type="text" v-model="tbCourse.Credits" /></div>
+            </div>
+        </div>
+
+        <template v-slot:footer>
+            <div>
+                <button id="btnSave" class="btn btn-primary" v-on:Click="saveIt" v-text="actionObj.btnText">儲存</button>
+                <button id="btnCancel" class="btn btn-secondary" v-on:Click="lightboxShow=!lightboxShow">取消</button>
+            </div>
+        </template>
+    </curd-lightbox>
+
+</div>
+
+@section Scripts{
+    <script src="./axios/axios.js"></script>
+    <script type="module">
+        import { createApp,ref,onMounted } from "./vue/vue.esm-browser.js"
+        import curdLightBoxComponent from '@Url.Content("~/vueComponent/curdLightBoxComponent.js")'
+
+        const app = createApp({
+            setup() {
+                const headers = {
+                    'Content-Type': 'application/json',
+                    RequestVerificationToken: document.getElementById("RequestVerificationToken").value
+                }
+                const coursesDataLst = ref(null);      //資料集(查詢結果)
+                const lightboxShow = ref(false);   //是否顯示lightbox
+                
+                // Grid 頁的資訊
+                const pagerInfo = ref({
+                    Index: 0,                           // Grid 頁的索引
+                    Size:@ViewData["defaultPageSize"],  //一頁的筆數
+                    TotalRows: 0,                       //總筆數
+                    TotalPages: 0,                      //總頁數
+                    NowPage: 1                          //目前所在頁數﹐預設第一頁
+                });
+                //查詢參數
+                const queryParam = ref({
+                    title:'',      // course title
+                    credits:null     // course credits
+                });
+                //新增﹑異動 對應的資料
+                const tbCourse = ref({
+                    CourseID: null,
+                    Title: '',
+                    Credits:null
+                });
+                //動作物件
+                const actionObj = ref({
+                    name: '',       //動作名稱(add, edit, del)
+                    title: '',       //標題
+                    btnText: '',     //button 顯示文字
+                });
+                //新增﹑異動儲存
+                const saveIt = () => {
+                    if (actionObj.value.name === "add") {
+                        addRecord();
+                    } else if (actionObj.value.name === "edit") {
+                        editRecord();
+                    }
+                };
+                // 新增, 異動
+                const curdAction = (actionName, id, title, credits) => {
+                    lightboxShow.value = !lightboxShow.value;
+                    //console.log('activeName', activeName);
+
+                    actionObj.value.name = actionName;
+
+                    if (actionName === 'add') {
+                        //btnName.value = "儲存";
+                        actionObj.value.title = '新增課程資料';
+                        actionObj.value.btnText = "儲存";
+
+                        tbCourse.value.CourseID = '';
+                        tbCourse.value.Title = '';
+                        tbCourse.value.Credits = '';
+
+                        console.log('tbCourse', tbCourse)
+                    } else if (actionName === 'edit') {
+                        //btnName.value = '編輯';
+                        actionObj.value.title = '編輯課程資料';
+                        actionObj.value.btnText = "編輯";
+
+                        tbCourse.value.CourseID = id;
+                        tbCourse.value.Title = title;
+                        tbCourse.value.Credits = credits;
+
+                        console.log('tbCourse', tbCourse)
+                    }
+                    console.log('actionObj', actionObj);
+                    return lightboxShow.value;
+                }
+                //新增一筆記錄(由元件來呼叫)
+                function addRecord() {
+                    console.log('外層addRecord 被觸發');
+                    if (tbCourse.value.Title === '') {
+                        alert('Title 不可為空');
+                        return false;
+                    } else if (tbCourse.value.Credits === '') {
+                        alert('Credits 不可為空');
+                        return false;
+                    } 
+
+                    axios.post('@Url.Action("AddRecord", "CoursesVue")',
+                        { Title: tbCourse.value.Title, Credits: tbCourse.value.Credits },
+                        { headers: headers })
+                        .then((resp) => {
+                            console.log('Add Record.', resp);
+                            console.log('Add Record.', resp.data);
+
+                            lightboxShow.value = false; //關閉燈箱
+                            m_queryCourseData(pagerInfo.value.Index, pagerInfo.value.Size);
+                        })
+                        .catch((er) => {
+                            console.log('新增資料失敗!', er);
+                        });
+                };
+                //異動一筆記錄(由元件來呼叫)
+                function editRecord() {
+                    console.log('外層editRecord 被觸發');
+                    if (tbCourse.value.Title === '') {
+                        alert('Title 不可為空');
+                        return false;
+                    } else if (tbCourse.value.Credits === '') {
+                        alert('Credits 不可為空');
+                        return false;
+                    } 
+
+                    axios.post('@Url.Action("editRecord", "CoursesVue")',
+                        { CourseID: tbCourse.value.CourseID, Title: tbCourse.value.Title, Credits: tbCourse.value.Credits },
+                        { headers: headers })
+                        .then((resp) => {
+                            console.log('edit Record.', resp);
+                            console.log('edit Record.', resp.data);
+
+                            lightboxShow.value = false; //關閉燈箱
+                            m_queryCourseData(pagerInfo.value.Index, pagerInfo.value.Size);
+                        })
+                        .catch((er) => {
+                            console.log('異動資料失敗!', er);
+                        });
+                };
+                //刪除紀錄
+                function delRecord(id, title,credits) {
+                    console.log('外層delRecord 被觸發');
+                    if (!confirm('是否確定刪除[ID:' + id + '-' + title +']此筆紀錄 ? ')) {
+                        return false;
+                    }
+
+                    axios.post('@Url.Action("delRecord", "CoursesVue")',
+                        { CourseID: id },
+                        { headers: headers })
+                        .then((resp) => {
+                            console.log('del Record.', resp);
+                            console.log('del Record.', resp.data);
+
+                            lightboxShow.value = false; //關閉燈箱
+                            m_queryCourseData(pagerInfo.value.Index, pagerInfo.value.Size);
+                        })
+                        .catch((er) => {
+                            console.log('刪除資料失敗!', er);
+                        });
+                }
+				
+				// button:btnQuery
+                function btnQuery() {
+                    m_queryCourseData(pagerInfo.value.Index, pagerInfo.value.Size);
+                }
+
+                //查詢
+                function m_queryCourseData(pageIndex, pageSize) {
+                    axios.post('@Url.Action("Query","CoursesVue")',
+                        { Title: queryParam.value.title, Credits: queryParam.value.credits, startIndex: pageIndex, PageSize: pageSize, Sorting: '' },
+                        { headers: headers })
+                        .then((resp) => {
+                            console.log('resp', resp);
+                            console.log('resp.data.Data', resp.data.data)
+
+                            coursesDataLst.value = resp.data.data.data;
+                            pagerInfo.value.TotalRows = resp.data.data.totalRows;
+                            pagerInfo.value.TotalPages = resp.data.data.totalPage;
+
+                        })
+                        .catch((er) => {
+                            console.log('查詢異常', er);
+                        })
+                }
+                //button:btnGoFirst  首頁
+                function btnGoFirst() {
+                    pagerInfo.value.NowPage = 1;
+                    pagerInfo.value.Index = (pagerInfo.value.NowPage - 1) * pagerInfo.value.Size;
+                    m_queryCourseData(pagerInfo.value.Index, pagerInfo.value.Size);
+                }
+                //button:btnGoPrev  上一頁
+                function btnGoPrev() {
+                    if (pagerInfo.value.NowPage == 1) {
+                        return;
+                    }
+                    pagerInfo.value.NowPage--;
+                    pagerInfo.value.Index = (pagerInfo.value.NowPage - 1) * pagerInfo.value.Size;
+                    m_queryCourseData(pagerInfo.value.Index, pagerInfo.value.Size);
+                }
+                //button:btnGoNext  下一頁
+                function btnGoNext() {
+                    if (pagerInfo.value.NowPage == pagerInfo.value.TotalPages) {
+                        return;
+                    }
+                    pagerInfo.value.NowPage++;
+                    pagerInfo.value.Index = (pagerInfo.value.NowPage - 1) * pagerInfo.value.Size;
+                    m_queryCourseData(pagerInfo.value.Index, pagerInfo.value.Size);
+                }
+                //button:btnGoLast  跳至最後一頁
+                function btnGoLast() {
+                    pagerInfo.value.NowPage = pagerInfo.value.TotalPages;
+                    pagerInfo.value.Index = (pagerInfo.value.TotalPages - 1) * pagerInfo.value.Size;
+                    m_queryCourseData(pagerInfo.value.Index, pagerInfo.value.Size);
+                }
+
+
+                onMounted(() => {
+                    m_queryCourseData(pagerInfo.value.Index, pagerInfo.value.Size);
+                })
+
+                return {
+                    pagerInfo,             // 查詢顯示表格的資訊
+                    lightboxShow,          // 變數
+                    queryParam,            // 物件: 查詢條件參數
+                    coursesDataLst,       // 物件: 查詢結果資料集
+                    tbCourse,             // 物件: 新增﹑異動 對應的資料
+                    actionObj,             // 物件: 動作物件
+                    curdAction,            // method: 新增/異動 的動作切換
+                    saveIt,                // method: save
+                    m_queryCourseData,    // method: 查詢
+                    //addRecord,             // method: 新增
+                    //editRecord,            // method: 修改
+                    delRecord,             // method: 刪除
+                    btnQuery,              // method: button query
+                    btnGoFirst,            // button Go First page
+                    btnGoPrev,             // button Go Prev page
+                    btnGoNext,             // button Go Next page
+                    btnGoLast              // button Go Last page
+                }
+            }
+        });
+
+        app.component('curd-lightbox', curdLightBoxComponent);
+
+        app.mount('#app');
+    </script>
+}
